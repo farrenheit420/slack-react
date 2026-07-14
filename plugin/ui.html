@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      :root {
+        --bg: #ffffff;
+        --fg: #1e1e1e;
+        --muted: #6b6b6b;
+        --border: #e5e5e5;
+        --accent: #611f69;
+        --accent-hover: #4a154b;
+        --danger: #b42318;
+        --surface: #f5f5f5;
+        --radius: 8px;
+        --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 16px;
+        font-family: var(--font);
+        font-size: 12px;
+        color: var(--fg);
+        background: var(--bg);
+      }
+
+      h1 {
+        margin: 0 0 4px;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .subtitle {
+        margin: 0 0 16px;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+
+      section {
+        margin-bottom: 16px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      section:last-of-type {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 6px;
+        font-weight: 500;
+      }
+
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      input[type="text"] {
+        flex: 1;
+        min-width: 0;
+        height: 32px;
+        padding: 0 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        font: inherit;
+        color: var(--fg);
+        background: var(--bg);
+      }
+
+      input[type="text"]:focus {
+        outline: 2px solid rgba(97, 31, 105, 0.35);
+        border-color: var(--accent);
+      }
+
+      button {
+        height: 32px;
+        padding: 0 12px;
+        border: none;
+        border-radius: var(--radius);
+        font: inherit;
+        font-weight: 500;
+        cursor: pointer;
+      }
+
+      button:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+
+      .btn-primary {
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .btn-primary:hover:not(:disabled) {
+        background: var(--accent-hover);
+      }
+
+      .btn-secondary {
+        background: var(--surface);
+        color: var(--fg);
+        border: 1px solid var(--border);
+      }
+
+      .btn-block {
+        width: 100%;
+      }
+
+      .status-card {
+        padding: 10px 12px;
+        border-radius: var(--radius);
+        background: var(--surface);
+        margin-bottom: 10px;
+        line-height: 1.4;
+      }
+
+      .status-card strong {
+        display: block;
+        margin-bottom: 2px;
+      }
+
+      .hint {
+        margin: 8px 0 0;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+
+      .pro-lock {
+        position: relative;
+      }
+
+      .badge {
+        display: inline-block;
+        margin-left: 6px;
+        padding: 2px 6px;
+        border-radius: 999px;
+        background: #f4ebff;
+        color: var(--accent);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+      }
+
+      #message {
+        margin-top: 12px;
+        min-height: 16px;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+
+      #message.error {
+        color: var(--danger);
+      }
+
+      #message.ok {
+        color: #067647;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Slack React</h1>
+    <p class="subtitle">Import custom Slack emoji as image layers.</p>
+
+    <section id="auth-section">
+      <div id="disconnected" class="status-card">
+        <strong>Not connected</strong>
+        Link a Slack workspace to import custom emoji.
+      </div>
+      <div id="connected" class="status-card hidden">
+        <strong id="team-name">Connected</strong>
+        <span id="team-id"></span>
+      </div>
+      <button id="connect-btn" class="btn-primary btn-block" type="button">
+        Connect to Slack
+      </button>
+      <button id="disconnect-btn" class="btn-secondary btn-block hidden" type="button">
+        Disconnect
+      </button>
+      <p class="hint">
+        Opens Slack in a browser tab. After you allow access, return here — the plugin
+        polls until connected.
+      </p>
+    </section>
+
+    <section id="import-section">
+      <label for="emoji-name">Import one emoji (free)</label>
+      <div class="row">
+        <input
+          id="emoji-name"
+          type="text"
+          placeholder=":this: or this"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button id="import-one-btn" class="btn-primary" type="button">Import</button>
+      </div>
+      <p class="hint">
+        Tip: use Quick Actions (⌘/) → Slack React → Import emoji… for Figma’s native
+        search bar.
+      </p>
+    </section>
+
+    <section class="pro-lock">
+      <label>
+        Import all
+        <span class="badge">PRO</span>
+      </label>
+      <button id="import-all-btn" class="btn-secondary btn-block" type="button" aria-disabled="true">
+        Import All (Pro) — locked
+      </button>
+      <p class="hint">Pull every custom emoji from the workspace. Coming soon.</p>
+    </section>
+
+    <div id="message" aria-live="polite"></div>
+
+    <script>
+      "use strict";(()=>{var N="http://localhost:3000";var a={CONNECT_RESULT:"connect-result",DISCONNECT:"disconnect",IMPORT_ONE:"import-one",IMPORT_ALL:"import-all",GET_CONNECTION:"get-connection",UI_READY:"ui-ready",CONNECTION_STATE:"connection-state",IMPORT_RESULT:"import-result",STATUS:"status"};var n={NOT_CONNECTED:"Connect a Slack workspace first (Plugins \u2192 Slack React \u2192 Open Slack React).",CONNECTED:t=>`Connected to ${t}`,DISCONNECTED:"Disconnected from Slack.",IMPORTING:t=>`Importing :${t}:\u2026`,IMPORTED:t=>`Imported :${t}:`,NOT_FOUND:t=>`No custom emoji named :${t}:`,QUOTA_EXCEEDED:"Free tier limit reached for this month. Import All is a Pro feature.",PRO_REQUIRED:"Import All is a Pro feature \u2014 coming soon.",AUTH_FAILED:"Slack connection failed. Try again.",AUTH_TIMEOUT:"Slack connection timed out. Try again.",ERROR_PREFIX:"Error: ",ENTER_EMOJI_NAME:"Enter an emoji name (e.g. this or :this:)."};var f=1500,O=180*1e3;function o(t){let e=document.getElementById(t);if(!e)throw new Error(`Missing #${t}`);return e}var d=o("connect-btn"),_=o("disconnect-btn"),p=o("import-one-btn"),A=o("import-all-btn"),S=o("emoji-name"),L=o("disconnected"),M=o("connected"),R=o("team-name"),C=o("team-id"),T=o("message"),g=N,m=null,I=!1;function s(t,e=""){T.textContent=t,T.classList.remove("ok","error"),e&&T.classList.add(e)}function k(t,e,E){L.classList.toggle("hidden",t),M.classList.toggle("hidden",!t),d.classList.toggle("hidden",t),_.classList.toggle("hidden",!t),t&&(R.textContent=e?`Connected to ${e}`:"Connected",C.textContent=E?`team_id: ${E}`:"")}function c(t){parent.postMessage({pluginMessage:t},"*")}async function U(){if(!I){I=!0,d.disabled=!0,s("Opening Slack\u2026");try{let t=await fetch(`${g}/auth/slack/start`,{method:"POST"}),e=await t.json();if(!t.ok||!e.authUrl||!e.readKey)throw new Error(e.error||n.AUTH_FAILED);window.open(e.authUrl,"_blank"),s("Waiting for Slack authorization\u2026"),await w(e.readKey)}catch(t){let e=t instanceof Error?t.message:String(t);s(e,"error")}finally{I=!1,d.disabled=!1,m!=null&&(window.clearInterval(m),m=null)}}}function w(t){let e=Date.now();return new Promise((E,l)=>{let u=async()=>{if(Date.now()-e>O){l(new Error(n.AUTH_TIMEOUT));return}try{let i=await fetch(`${g}/auth/slack/poll?key=${encodeURIComponent(t)}`);if(i.status===202)return;let r=await i.json();if(!i.ok){l(new Error(r.error||n.AUTH_FAILED));return}if(!r.teamId||!r.sessionToken){l(new Error(n.AUTH_FAILED));return}c({type:a.CONNECT_RESULT,teamId:r.teamId,teamName:r.teamName||r.teamId,sessionToken:r.sessionToken}),s(n.CONNECTED(r.teamName||r.teamId),"ok"),E()}catch(i){Date.now()-e>O&&l(i instanceof Error?i:new Error(n.AUTH_FAILED))}};u(),m=window.setInterval(()=>{u()},f)})}d.addEventListener("click",()=>{U()});_.addEventListener("click",()=>{c({type:a.DISCONNECT}),s(n.DISCONNECTED)});p.addEventListener("click",()=>{let t=S.value;if(!t.trim()){s(n.ENTER_EMOJI_NAME,"error");return}s(n.IMPORTING(t.replace(/^:+|:+$/g,""))),c({type:a.IMPORT_ONE,name:t})});S.addEventListener("keydown",t=>{t.key==="Enter"&&p.click()});A.addEventListener("click",()=>{s(n.PRO_REQUIRED,"error"),c({type:a.IMPORT_ALL})});window.onmessage=t=>{let e=t.data&&t.data.pluginMessage;if(!(!e||!e.type)){if(e.type===a.CONNECTION_STATE){typeof e.apiBaseUrl=="string"&&e.apiBaseUrl&&(g=e.apiBaseUrl),k(!!e.connected,e.teamName,e.teamId);return}e.type===a.IMPORT_RESULT&&s(e.message||"",e.ok?"ok":"error")}};c({type:a.UI_READY});})();
+
+    </script>
+  </body>
+</html>

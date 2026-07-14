@@ -1,0 +1,35 @@
+{
+  "name": "Slack React",
+  "id": "slack-react",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": [
+      "https://emoji.slack-edge.com",
+      "https://a.slack-edge.com"
+    ],
+    "reasoning": "Fetches Slack custom emoji images from Slack CDNs. Add your deployed API host here before publishing.",
+    "devAllowedDomains": ["http://localhost:3000"]
+  },
+  "menu": [
+    {
+      "name": "Import emoji…",
+      "command": "import-emoji",
+      "parameters": [
+        {
+          "name": "Emoji name",
+          "key": "name",
+          "description": "Exact custom emoji name (e.g. this or :this:)",
+          "allowFreeform": true
+        }
+      ]
+    },
+    {
+      "name": "Open Slack React",
+      "command": "open"
+    }
+  ]
+}
