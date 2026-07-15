@@ -14,19 +14,20 @@ npm run build
 
 2. In Figma Desktop: **Plugins → Development → Import plugin from manifest…**
 3. Select `plugin/manifest.json`.
-4. Run **Plugins → Development → Slack React → Open Slack React**.
 
-## Quick Actions import
+## Quick Actions
 
-1. Press **⌘/** (Mac) or **Ctrl+/** (Windows).
-2. Choose **Slack React → Import emoji…**
-3. Type an exact custom emoji name (`this` or `:this:`) and press Enter.
+Press **⌘/** (Mac) or **Ctrl+/** (Windows), then choose:
+
+| Command | What it does |
+| --- | --- |
+| **Import emoji…** | Search your Slack custom emoji as you type, then import as a plain image layer. If no workspace is connected, Slack OAuth starts first. |
+| **Import as stamp…** | Same search, but places a FigJam-style stamp (white matte + slight random tilt). |
+| **Plugin Options** | Connect / disconnect, and default import size |
 
 ## Backend
 
 The plugin talks to [`../api`](../api). For local development the API is expected at `http://localhost:3000` (see `constants.ts`).
-
-Connect flow: the plugin opens Slack OAuth in a browser tab, then polls the backend until authorization finishes.
 
 ## Network access
 

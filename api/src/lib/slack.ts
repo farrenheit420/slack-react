@@ -7,12 +7,18 @@ export type SlackTokenResponse = {
   token_type?: string;
   scope?: string;
   team?: { id: string; name: string };
-  authed_user?: { id: string; access_token?: string; scope?: string };
+  authed_user?: {
+    id: string;
+    access_token?: string;
+    scope?: string;
+    token_type?: string;
+  };
 };
 
 export function buildSlackAuthorizeUrl(writeKey: string): string {
   const { clientId, redirectUri } = getSlackConfig();
   // User token scope only — emoji.list needs emoji:read on a user token.
+  // Cache-bust so reconnect doesn't reuse a stale authorize page in the browser.
   const params = new URLSearchParams({
     client_id: clientId,
     user_scope: "emoji:read",
@@ -52,7 +58,9 @@ export async function exchangeSlackCode(code: string): Promise<{
   const botToken = data.access_token;
   const accessToken = userToken || botToken;
   if (!accessToken) {
-    throw new Error("Slack did not return an access token");
+    throw new Error(
+      "Slack did not return an access token. Try removing the app from your Slack workspace and connecting again."
+    );
   }
 
   const teamId = data.team?.id;
@@ -108,4 +116,36 @@ export function resolveEmojiUrl(
   }
 
   return null;
+}
+
+export type ResolvedEmoji = { name: string; url: string };
+
+/** All custom emoji names with concrete image URLs (aliases included under their own names). */
+export function listResolvedEmoji(emojiMap: Record<string, string>): ResolvedEmoji[] {
+  const out: ResolvedEmoji[] = [];
+  for (const name of Object.keys(emojiMap)) {
+    const url = resolveEmojiUrl(emojiMap, name);
+    if (url) out.push({ name, url });
+  }
+  out.sort((a, b) => a.name.localeCompare(b.name));
+  return out;
+}
+
+export function searchResolvedEmoji(
+  emoji: ResolvedEmoji[],
+  query: string,
+  limit = 25
+): ResolvedEmoji[] {
+  const q = query.trim().replace(/^:+|:+$/g, "").toLowerCase();
+  if (!q) return emoji.slice(0, limit);
+
+  const prefix: ResolvedEmoji[] = [];
+  const contains: ResolvedEmoji[] = [];
+
+  for (const item of emoji) {
+    if (item.name.startsWith(q)) prefix.push(item);
+    else if (item.name.includes(q)) contains.push(item);
+  }
+
+  return [...prefix, ...contains].slice(0, limit);
 }

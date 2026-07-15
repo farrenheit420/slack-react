@@ -4,9 +4,17 @@ import { getSupabase, SlackConnection } from "./supabase";
 export async function getConnectionFromRequest(
   request: Request
 ): Promise<SlackConnection | null> {
-  const token = bearerFromHeader(request.headers.get("authorization"));
+  const token =
+    bearerFromHeader(request.headers.get("authorization")) ||
+    new URL(request.url).searchParams.get("session");
   if (!token) return null;
 
+  return getConnectionFromSessionToken(token);
+}
+
+export async function getConnectionFromSessionToken(
+  token: string
+): Promise<SlackConnection | null> {
   const supabase = getSupabase();
   const tokenHash = hashToken(token);
   const { data, error } = await supabase
