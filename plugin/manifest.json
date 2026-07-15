@@ -6,12 +6,15 @@
   "ui": "ui.html",
   "editorType": ["figma"],
   "documentAccess": "dynamic-page",
+  "permissions": ["activeusers"],
   "networkAccess": {
     "allowedDomains": [
       "https://emoji.slack-edge.com",
-      "https://a.slack-edge.com"
+      "https://a.slack-edge.com",
+      "https://slack.com",
+      "https://*.slack.com"
     ],
-    "reasoning": "Fetches Slack custom emoji images from Slack CDNs. Add your deployed API host here before publishing.",
+    "reasoning": "Opens Slack OAuth and fetches Slack custom emoji images from Slack CDNs. Add your deployed API host here before publishing.",
     "devAllowedDomains": ["http://localhost:3000"]
   },
   "menu": [
@@ -22,13 +25,23 @@
         {
           "name": "Emoji name",
           "key": "name",
-          "description": "Exact custom emoji name (e.g. this or :this:)",
-          "allowFreeform": true
+          "description": "Search custom emoji by name (e.g. wave or party)"
         }
       ]
     },
     {
-      "name": "Open Slack React",
+      "name": "Import as stamp…",
+      "command": "import-stamp",
+      "parameters": [
+        {
+          "name": "Emoji name",
+          "key": "name",
+          "description": "Search custom emoji by name (e.g. wave or party)"
+        }
+      ]
+    },
+    {
+      "name": "Plugin Options",
       "command": "open"
     }
   ]

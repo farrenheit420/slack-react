@@ -35,7 +35,10 @@ API: `http://localhost:3000`
 | `POST` | `/auth/slack/start` | Create read/write keys; return Slack authorize URL |
 | `GET` | `/auth/slack/callback` | Slack redirects here; stores token; marks poll ready |
 | `GET` | `/auth/slack/poll?key=` | Plugin polls until `{ teamId, teamName, sessionToken }` |
-| `GET` | `/api/emoji/one?name=` | Auth session → one emoji `{ name, url }` (quota checked) |
+| `POST` | `/auth/slack/disconnect` | Invalidate plugin session for the bearer workspace |
+| `GET` | `/api/emoji/one?name=` | Auth session → one emoji `{ name, url }` |
+| `GET` | `/api/emoji/search?q=&limit=` | Auth session → matching emoji for autocomplete. `catalog=1` returns the full resolved list. |
+| `GET` | `/api/emoji/icon?name=&session=` | Proxied emoji image with CORS (for Quick Action suggestion thumbnails). |
 | `GET` | `/api/emoji/list` | Pro only; free tier gets `402` + `{ upgrade: true }` |
 
 CORS allows `*` so Figma’s null-origin plugin UI can call these routes.

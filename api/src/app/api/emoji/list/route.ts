@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getConnectionFromRequest, recordUsage } from "@/lib/auth";
+import { getConnectionFromRequest } from "@/lib/auth";
 import { jsonWithCors, optionsResponse } from "@/lib/cors";
 import { fetchEmojiMap, resolveEmojiUrl } from "@/lib/slack";
 
@@ -33,8 +33,6 @@ export async function GET(request: NextRequest) {
       const url = resolveEmojiUrl(emojiMap, name);
       if (url) resolved[name] = url;
     }
-
-    await recordUsage(connection.team_id, "all");
 
     return jsonWithCors({ emoji: resolved });
   } catch (err) {

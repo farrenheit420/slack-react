@@ -8,10 +8,11 @@
         --fg: #1e1e1e;
         --muted: #6b6b6b;
         --border: #e5e5e5;
-        --accent: #611f69;
-        --accent-hover: #4a154b;
-        --danger: #b42318;
         --surface: #f5f5f5;
+        --accent: #611f69;
+        --connected-bg: #bdf0dc;
+        --danger: #aa221c;
+        --danger-border: #e90a00;
         --radius: 8px;
         --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
@@ -27,59 +28,21 @@
         font-size: 12px;
         color: var(--fg);
         background: var(--bg);
-      }
-
-      h1 {
-        margin: 0 0 4px;
-        font-size: 14px;
-        font-weight: 600;
-      }
-
-      .subtitle {
-        margin: 0 0 16px;
-        color: var(--muted);
-        line-height: 1.4;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
       }
 
       section {
-        margin-bottom: 16px;
-        padding-bottom: 16px;
-        border-bottom: 1px solid var(--border);
+        margin: 0;
+        padding: 0;
+        border: none;
       }
 
-      section:last-of-type {
-        border-bottom: none;
-        margin-bottom: 0;
-        padding-bottom: 0;
-      }
-
-      label {
+      .section-label {
         display: block;
-        margin-bottom: 6px;
-        font-weight: 500;
-      }
-
-      .row {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-      }
-
-      input[type="text"] {
-        flex: 1;
-        min-width: 0;
-        height: 32px;
-        padding: 0 10px;
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        font: inherit;
-        color: var(--fg);
-        background: var(--bg);
-      }
-
-      input[type="text"]:focus {
-        outline: 2px solid rgba(97, 31, 105, 0.35);
-        border-color: var(--accent);
+        margin-bottom: 8px;
+        font-weight: 600;
       }
 
       button {
@@ -103,59 +66,86 @@
       }
 
       .btn-primary:hover:not(:disabled) {
-        background: var(--accent-hover);
+        background: #4a154b;
       }
 
-      .btn-secondary {
-        background: var(--surface);
-        color: var(--fg);
-        border: 1px solid var(--border);
+      .btn-danger {
+        background: #fff;
+        color: var(--danger);
+        border: 1px solid var(--danger-border);
       }
 
-      .btn-block {
-        width: 100%;
+      .btn-danger:hover {
+        background: #fff5f5;
       }
 
       .status-card {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
         padding: 10px 12px;
         border-radius: var(--radius);
         background: var(--surface);
-        margin-bottom: 10px;
         line-height: 1.4;
+      }
+
+      .status-card-connected {
+        background: var(--connected-bg);
       }
 
       .status-card strong {
         display: block;
-        margin-bottom: 2px;
-      }
-
-      .hint {
-        margin: 8px 0 0;
-        color: var(--muted);
-        line-height: 1.4;
-      }
-
-      .pro-lock {
-        position: relative;
-      }
-
-      .badge {
-        display: inline-block;
-        margin-left: 6px;
-        padding: 2px 6px;
-        border-radius: 999px;
-        background: #f4ebff;
-        color: var(--accent);
-        font-size: 10px;
         font-weight: 600;
-        letter-spacing: 0.02em;
+        line-height: normal;
+      }
+
+      .status-card p {
+        margin: 0;
+        line-height: 17px;
+      }
+
+      .segmented {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        height: 32px;
+        border: 1px solid var(--connected-bg);
+        border-radius: var(--radius);
+        overflow: hidden;
+        background: #fff;
+      }
+
+      .segmented button {
+        flex: 1;
+        height: 30px;
+        border-radius: 0;
+        background: transparent;
+        color: var(--fg);
+        border: none;
+        border-right: 1px solid var(--border);
+        font-weight: 500;
+      }
+
+      .segmented button:last-child {
+        border-right: none;
+      }
+
+      .segmented button[aria-pressed="true"] {
+        background: var(--connected-bg);
+        color: #000000;
+        font-weight: 700;
+        z-index: 1;
       }
 
       #message {
-        margin-top: 12px;
-        min-height: 16px;
+        min-height: 0;
         color: var(--muted);
         line-height: 1.4;
+      }
+
+      #message:empty {
+        display: none;
       }
 
       #message.error {
@@ -172,57 +162,30 @@
     </style>
   </head>
   <body>
-    <h1>Slack React</h1>
-    <p class="subtitle">Import custom Slack emoji as image layers.</p>
+    <section id="size-section">
+      <span class="section-label">Import Size</span>
+      <div class="segmented" role="group" aria-label="Import size">
+        <button type="button" data-size="small" aria-pressed="false">S / 48px</button>
+        <button type="button" data-size="medium" aria-pressed="true">M / 96px</button>
+        <button type="button" data-size="large" aria-pressed="false">L / 128 px</button>
+      </div>
+    </section>
 
     <section id="auth-section">
       <div id="disconnected" class="status-card">
-        <strong>Not connected</strong>
-        Link a Slack workspace to import custom emoji.
+        <strong>Not Connected to Slack</strong>
+        <p>Link a Slack workspace to import custom emoji.</p>
+        <button id="connect-btn" class="btn-primary" type="button">
+          Connect to Slack
+        </button>
       </div>
-      <div id="connected" class="status-card hidden">
+      <div id="connected" class="status-card status-card-connected hidden">
         <strong id="team-name">Connected</strong>
-        <span id="team-id"></span>
+        <p>Disconnect to import custom emoji from another workspace.</p>
+        <button id="disconnect-btn" class="btn-danger" type="button">
+          Disconnect
+        </button>
       </div>
-      <button id="connect-btn" class="btn-primary btn-block" type="button">
-        Connect to Slack
-      </button>
-      <button id="disconnect-btn" class="btn-secondary btn-block hidden" type="button">
-        Disconnect
-      </button>
-      <p class="hint">
-        Opens Slack in a browser tab. After you allow access, return here — the plugin
-        polls until connected.
-      </p>
-    </section>
-
-    <section id="import-section">
-      <label for="emoji-name">Import one emoji (free)</label>
-      <div class="row">
-        <input
-          id="emoji-name"
-          type="text"
-          placeholder=":this: or this"
-          autocomplete="off"
-          spellcheck="false"
-        />
-        <button id="import-one-btn" class="btn-primary" type="button">Import</button>
-      </div>
-      <p class="hint">
-        Tip: use Quick Actions (⌘/) → Slack React → Import emoji… for Figma’s native
-        search bar.
-      </p>
-    </section>
-
-    <section class="pro-lock">
-      <label>
-        Import all
-        <span class="badge">PRO</span>
-      </label>
-      <button id="import-all-btn" class="btn-secondary btn-block" type="button" aria-disabled="true">
-        Import All (Pro) — locked
-      </button>
-      <p class="hint">Pull every custom emoji from the workspace. Coming soon.</p>
     </section>
 
     <div id="message" aria-live="polite"></div>

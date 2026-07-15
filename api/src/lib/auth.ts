@@ -4,9 +4,17 @@ import { getSupabase, SlackConnection } from "./supabase";
 export async function getConnectionFromRequest(
   request: Request
 ): Promise<SlackConnection | null> {
-  const token = bearerFromHeader(request.headers.get("authorization"));
+  const token =
+    bearerFromHeader(request.headers.get("authorization")) ||
+    new URL(request.url).searchParams.get("session");
   if (!token) return null;
 
+  return getConnectionFromSessionToken(token);
+}
+
+export async function getConnectionFromSessionToken(
+  token: string
+): Promise<SlackConnection | null> {
   const supabase = getSupabase();
   const tokenHash = hashToken(token);
   const { data, error } = await supabase
@@ -48,42 +56,5 @@ export async function upsertConnection(input: {
 
   if (error) {
     throw new Error(`Failed to save connection: ${error.message}`);
-  }
-}
-
-export async function countMonthlyOneImports(teamId: string): Promise<number> {
-  const supabase = getSupabase();
-  const start = new Date();
-  start.setUTCDate(1);
-  start.setUTCHours(0, 0, 0, 0);
-
-  const { count, error } = await supabase
-    .from("usage_events")
-    .select("id", { count: "exact", head: true })
-    .eq("team_id", teamId)
-    .eq("kind", "one")
-    .gte("created_at", start.toISOString());
-
-  if (error) {
-    throw new Error(`Failed to count usage: ${error.message}`);
-  }
-
-  return count ?? 0;
-}
-
-export async function recordUsage(
-  teamId: string,
-  kind: "one" | "all",
-  emojiName?: string
-): Promise<void> {
-  const supabase = getSupabase();
-  const { error } = await supabase.from("usage_events").insert({
-    team_id: teamId,
-    kind,
-    emoji_name: emojiName ?? null,
-  });
-
-  if (error) {
-    throw new Error(`Failed to record usage: ${error.message}`);
   }
 }

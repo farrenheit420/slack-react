@@ -37,11 +37,14 @@ export async function completeOAuthPending(
   payload: OAuthPayload
 ): Promise<void> {
   const supabase = getSupabase();
+  const nowIso = new Date().toISOString();
+
   const { data, error } = await supabase
     .from("oauth_pending")
     .update({ payload })
     .eq("write_key", writeKey)
-    .gt("expires_at", new Date().toISOString())
+    .gt("expires_at", nowIso)
+    .is("payload", null)
     .select("read_key")
     .maybeSingle();
 
@@ -49,6 +52,25 @@ export async function completeOAuthPending(
     throw new Error(`Failed to complete oauth pending: ${error.message}`);
   }
   if (!data) {
+    // Distinguish already-consumed vs unknown state for clearer reconnect errors.
+    const { data: existing } = await supabase
+      .from("oauth_pending")
+      .select("payload, expires_at")
+      .eq("write_key", writeKey)
+      .maybeSingle();
+
+    if (!existing) {
+      throw new Error(
+        "This Slack login link is no longer valid. Close the browser tab, then click Connect in Figma again."
+      );
+    }
+    if (new Date(existing.expires_at).getTime() < Date.now()) {
+      throw new Error("Slack login expired. Click Connect in Figma again.");
+    }
+    if (existing.payload) {
+      // Already completed — treat as success so a double-callback doesn't fail the user.
+      return;
+    }
     throw new Error("Invalid or expired OAuth state");
   }
 }

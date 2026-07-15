@@ -8,10 +8,11 @@
         --fg: #1e1e1e;
         --muted: #6b6b6b;
         --border: #e5e5e5;
-        --accent: #611f69;
-        --accent-hover: #4a154b;
-        --danger: #b42318;
         --surface: #f5f5f5;
+        --accent: #611f69;
+        --connected-bg: #bdf0dc;
+        --danger: #aa221c;
+        --danger-border: #e90a00;
         --radius: 8px;
         --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
@@ -27,59 +28,21 @@
         font-size: 12px;
         color: var(--fg);
         background: var(--bg);
-      }
-
-      h1 {
-        margin: 0 0 4px;
-        font-size: 14px;
-        font-weight: 600;
-      }
-
-      .subtitle {
-        margin: 0 0 16px;
-        color: var(--muted);
-        line-height: 1.4;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
       }
 
       section {
-        margin-bottom: 16px;
-        padding-bottom: 16px;
-        border-bottom: 1px solid var(--border);
+        margin: 0;
+        padding: 0;
+        border: none;
       }
 
-      section:last-of-type {
-        border-bottom: none;
-        margin-bottom: 0;
-        padding-bottom: 0;
-      }
-
-      label {
+      .section-label {
         display: block;
-        margin-bottom: 6px;
-        font-weight: 500;
-      }
-
-      .row {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-      }
-
-      input[type="text"] {
-        flex: 1;
-        min-width: 0;
-        height: 32px;
-        padding: 0 10px;
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        font: inherit;
-        color: var(--fg);
-        background: var(--bg);
-      }
-
-      input[type="text"]:focus {
-        outline: 2px solid rgba(97, 31, 105, 0.35);
-        border-color: var(--accent);
+        margin-bottom: 8px;
+        font-weight: 600;
       }
 
       button {
@@ -103,59 +66,86 @@
       }
 
       .btn-primary:hover:not(:disabled) {
-        background: var(--accent-hover);
+        background: #4a154b;
       }
 
-      .btn-secondary {
-        background: var(--surface);
-        color: var(--fg);
-        border: 1px solid var(--border);
+      .btn-danger {
+        background: #fff;
+        color: var(--danger);
+        border: 1px solid var(--danger-border);
       }
 
-      .btn-block {
-        width: 100%;
+      .btn-danger:hover {
+        background: #fff5f5;
       }
 
       .status-card {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
         padding: 10px 12px;
         border-radius: var(--radius);
         background: var(--surface);
-        margin-bottom: 10px;
         line-height: 1.4;
+      }
+
+      .status-card-connected {
+        background: var(--connected-bg);
       }
 
       .status-card strong {
         display: block;
-        margin-bottom: 2px;
-      }
-
-      .hint {
-        margin: 8px 0 0;
-        color: var(--muted);
-        line-height: 1.4;
-      }
-
-      .pro-lock {
-        position: relative;
-      }
-
-      .badge {
-        display: inline-block;
-        margin-left: 6px;
-        padding: 2px 6px;
-        border-radius: 999px;
-        background: #f4ebff;
-        color: var(--accent);
-        font-size: 10px;
         font-weight: 600;
-        letter-spacing: 0.02em;
+        line-height: normal;
+      }
+
+      .status-card p {
+        margin: 0;
+        line-height: 17px;
+      }
+
+      .segmented {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        height: 32px;
+        border: 1px solid var(--connected-bg);
+        border-radius: var(--radius);
+        overflow: hidden;
+        background: #fff;
+      }
+
+      .segmented button {
+        flex: 1;
+        height: 30px;
+        border-radius: 0;
+        background: transparent;
+        color: var(--fg);
+        border: none;
+        border-right: 1px solid var(--border);
+        font-weight: 500;
+      }
+
+      .segmented button:last-child {
+        border-right: none;
+      }
+
+      .segmented button[aria-pressed="true"] {
+        background: var(--connected-bg);
+        color: #000000;
+        font-weight: 700;
+        z-index: 1;
       }
 
       #message {
-        margin-top: 12px;
-        min-height: 16px;
+        min-height: 0;
         color: var(--muted);
         line-height: 1.4;
+      }
+
+      #message:empty {
+        display: none;
       }
 
       #message.error {
@@ -172,63 +162,36 @@
     </style>
   </head>
   <body>
-    <h1>Slack React</h1>
-    <p class="subtitle">Import custom Slack emoji as image layers.</p>
+    <section id="size-section">
+      <span class="section-label">Import Size</span>
+      <div class="segmented" role="group" aria-label="Import size">
+        <button type="button" data-size="small" aria-pressed="false">S / 48px</button>
+        <button type="button" data-size="medium" aria-pressed="true">M / 96px</button>
+        <button type="button" data-size="large" aria-pressed="false">L / 128 px</button>
+      </div>
+    </section>
 
     <section id="auth-section">
       <div id="disconnected" class="status-card">
-        <strong>Not connected</strong>
-        Link a Slack workspace to import custom emoji.
+        <strong>Not Connected to Slack</strong>
+        <p>Link a Slack workspace to import custom emoji.</p>
+        <button id="connect-btn" class="btn-primary" type="button">
+          Connect to Slack
+        </button>
       </div>
-      <div id="connected" class="status-card hidden">
+      <div id="connected" class="status-card status-card-connected hidden">
         <strong id="team-name">Connected</strong>
-        <span id="team-id"></span>
+        <p>Disconnect to import custom emoji from another workspace.</p>
+        <button id="disconnect-btn" class="btn-danger" type="button">
+          Disconnect
+        </button>
       </div>
-      <button id="connect-btn" class="btn-primary btn-block" type="button">
-        Connect to Slack
-      </button>
-      <button id="disconnect-btn" class="btn-secondary btn-block hidden" type="button">
-        Disconnect
-      </button>
-      <p class="hint">
-        Opens Slack in a browser tab. After you allow access, return here — the plugin
-        polls until connected.
-      </p>
-    </section>
-
-    <section id="import-section">
-      <label for="emoji-name">Import one emoji (free)</label>
-      <div class="row">
-        <input
-          id="emoji-name"
-          type="text"
-          placeholder=":this: or this"
-          autocomplete="off"
-          spellcheck="false"
-        />
-        <button id="import-one-btn" class="btn-primary" type="button">Import</button>
-      </div>
-      <p class="hint">
-        Tip: use Quick Actions (⌘/) → Slack React → Import emoji… for Figma’s native
-        search bar.
-      </p>
-    </section>
-
-    <section class="pro-lock">
-      <label>
-        Import all
-        <span class="badge">PRO</span>
-      </label>
-      <button id="import-all-btn" class="btn-secondary btn-block" type="button" aria-disabled="true">
-        Import All (Pro) — locked
-      </button>
-      <p class="hint">Pull every custom emoji from the workspace. Coming soon.</p>
     </section>
 
     <div id="message" aria-live="polite"></div>
 
     <script>
-      "use strict";(()=>{var N="http://localhost:3000";var a={CONNECT_RESULT:"connect-result",DISCONNECT:"disconnect",IMPORT_ONE:"import-one",IMPORT_ALL:"import-all",GET_CONNECTION:"get-connection",UI_READY:"ui-ready",CONNECTION_STATE:"connection-state",IMPORT_RESULT:"import-result",STATUS:"status"};var n={NOT_CONNECTED:"Connect a Slack workspace first (Plugins \u2192 Slack React \u2192 Open Slack React).",CONNECTED:t=>`Connected to ${t}`,DISCONNECTED:"Disconnected from Slack.",IMPORTING:t=>`Importing :${t}:\u2026`,IMPORTED:t=>`Imported :${t}:`,NOT_FOUND:t=>`No custom emoji named :${t}:`,QUOTA_EXCEEDED:"Free tier limit reached for this month. Import All is a Pro feature.",PRO_REQUIRED:"Import All is a Pro feature \u2014 coming soon.",AUTH_FAILED:"Slack connection failed. Try again.",AUTH_TIMEOUT:"Slack connection timed out. Try again.",ERROR_PREFIX:"Error: ",ENTER_EMOJI_NAME:"Enter an emoji name (e.g. this or :this:)."};var f=1500,O=180*1e3;function o(t){let e=document.getElementById(t);if(!e)throw new Error(`Missing #${t}`);return e}var d=o("connect-btn"),_=o("disconnect-btn"),p=o("import-one-btn"),A=o("import-all-btn"),S=o("emoji-name"),L=o("disconnected"),M=o("connected"),R=o("team-name"),C=o("team-id"),T=o("message"),g=N,m=null,I=!1;function s(t,e=""){T.textContent=t,T.classList.remove("ok","error"),e&&T.classList.add(e)}function k(t,e,E){L.classList.toggle("hidden",t),M.classList.toggle("hidden",!t),d.classList.toggle("hidden",t),_.classList.toggle("hidden",!t),t&&(R.textContent=e?`Connected to ${e}`:"Connected",C.textContent=E?`team_id: ${E}`:"")}function c(t){parent.postMessage({pluginMessage:t},"*")}async function U(){if(!I){I=!0,d.disabled=!0,s("Opening Slack\u2026");try{let t=await fetch(`${g}/auth/slack/start`,{method:"POST"}),e=await t.json();if(!t.ok||!e.authUrl||!e.readKey)throw new Error(e.error||n.AUTH_FAILED);window.open(e.authUrl,"_blank"),s("Waiting for Slack authorization\u2026"),await w(e.readKey)}catch(t){let e=t instanceof Error?t.message:String(t);s(e,"error")}finally{I=!1,d.disabled=!1,m!=null&&(window.clearInterval(m),m=null)}}}function w(t){let e=Date.now();return new Promise((E,l)=>{let u=async()=>{if(Date.now()-e>O){l(new Error(n.AUTH_TIMEOUT));return}try{let i=await fetch(`${g}/auth/slack/poll?key=${encodeURIComponent(t)}`);if(i.status===202)return;let r=await i.json();if(!i.ok){l(new Error(r.error||n.AUTH_FAILED));return}if(!r.teamId||!r.sessionToken){l(new Error(n.AUTH_FAILED));return}c({type:a.CONNECT_RESULT,teamId:r.teamId,teamName:r.teamName||r.teamId,sessionToken:r.sessionToken}),s(n.CONNECTED(r.teamName||r.teamId),"ok"),E()}catch(i){Date.now()-e>O&&l(i instanceof Error?i:new Error(n.AUTH_FAILED))}};u(),m=window.setInterval(()=>{u()},f)})}d.addEventListener("click",()=>{U()});_.addEventListener("click",()=>{c({type:a.DISCONNECT}),s(n.DISCONNECTED)});p.addEventListener("click",()=>{let t=S.value;if(!t.trim()){s(n.ENTER_EMOJI_NAME,"error");return}s(n.IMPORTING(t.replace(/^:+|:+$/g,""))),c({type:a.IMPORT_ONE,name:t})});S.addEventListener("keydown",t=>{t.key==="Enter"&&p.click()});A.addEventListener("click",()=>{s(n.PRO_REQUIRED,"error"),c({type:a.IMPORT_ALL})});window.onmessage=t=>{let e=t.data&&t.data.pluginMessage;if(!(!e||!e.type)){if(e.type===a.CONNECTION_STATE){typeof e.apiBaseUrl=="string"&&e.apiBaseUrl&&(g=e.apiBaseUrl),k(!!e.connected,e.teamName,e.teamId);return}e.type===a.IMPORT_RESULT&&s(e.message||"",e.ok?"ok":"error")}};c({type:a.UI_READY});})();
+      "use strict";(()=>{var O="http://localhost:3000";var o={DISCONNECT:"disconnect",IMPORT_ONE:"import-one",GET_CONNECTION:"get-connection",UI_READY:"ui-ready",SAVE_OPTIONS:"save-options",RUN_OAUTH:"run-oauth",CONNECTION_STATE:"connection-state",OPTIONS_STATE:"options-state",IMPORT_RESULT:"import-result",STATUS:"status",START_OAUTH:"start-oauth",AUTH_ERROR:"auth-error"};var N=600*1e3;var c={NOT_CONNECTED:"Connect a Slack workspace in Plugin Options first.",CONNECT_TO_IMPORT:"Connect to Slack to import\u2026",CONNECTED:e=>`Connected to ${e}`,DISCONNECTED:"Disconnected from Slack.",IMPORTING:e=>`Importing :${e}:\u2026`,IMPORTED:e=>`Imported :${e}:`,NOT_FOUND:e=>`No custom emoji named :${e}:`,AUTH_FAILED:"Slack connection failed. Try again.",AUTH_TIMEOUT:"Slack connection timed out. Try again.",ERROR_PREFIX:"Error: ",ENTER_EMOJI_NAME:"Enter an emoji name (e.g. this or :this:)."};function s(e){let t=document.getElementById(e);if(!t)throw new Error(`Missing #${e}`);return t}var T=s("connect-btn"),u=s("disconnect-btn"),A=s("disconnected"),I=s("connected"),f=s("team-name"),E=s("message"),d=Array.from(document.querySelectorAll("[data-size]")),m=O,l=!1,r="medium";function n(e,t=""){E.textContent=e,E.classList.remove("ok","error"),t&&E.classList.add(t)}function p(e,t){A.classList.toggle("hidden",e),I.classList.toggle("hidden",!e),e&&(f.textContent=t?`Connected to ${t}`:"Connected",l=!1,T.disabled=!1)}function i(e){l=e,T.disabled=e}function a(e){parent.postMessage({pluginMessage:e},"*")}function g(){a({type:o.SAVE_OPTIONS,size:r})}function S(){for(let e of d)e.setAttribute("aria-pressed",String(e.dataset.size===r))}async function _(){if(!l){i(!0),n("Opening Slack\u2026");try{let e=await fetch(`${m}/auth/slack/start`,{method:"POST"}),t=await e.json();if(!e.ok||!t.authUrl||!t.readKey)throw new Error(t.error||c.AUTH_FAILED);n("Waiting for Slack authorization\u2026"),a({type:o.RUN_OAUTH,authUrl:t.authUrl,readKey:t.readKey})}catch(e){let t=e instanceof Error?e.message:String(e);n(t,"error"),i(!1)}}}for(let e of d)e.addEventListener("click",()=>{let t=e.dataset.size;!t||t===r||(r=t,S(),g())});u.addEventListener("click",()=>{i(!1),a({type:o.DISCONNECT}),n(""),p(!1)});T.addEventListener("click",()=>{_()});window.onmessage=e=>{let t=e.data&&e.data.pluginMessage;if(!(!t||!t.type)){if(t.type===o.CONNECTION_STATE){typeof t.apiBaseUrl=="string"&&t.apiBaseUrl&&(m=t.apiBaseUrl),p(!!t.connected,t.teamName),t.connected&&n("");return}if(t.type===o.OPTIONS_STATE){(t.size==="small"||t.size==="medium"||t.size==="large")&&(r=t.size),S();return}if(t.type===o.START_OAUTH){_();return}if(t.type===o.AUTH_ERROR){i(!1),n(t.error||c.AUTH_FAILED,"error");return}t.type===o.IMPORT_RESULT&&n(t.message||"",t.ok?"ok":"error")}};S();a({type:o.UI_READY});})();
 
     </script>
   </body>
