@@ -243,9 +243,6 @@ async function fetchEmojiOne(
     if (res.status === 404) {
       throw new Error(MESSAGES.NOT_FOUND(name));
     }
-    if (res.status === 429 || data.code === "quota_exceeded") {
-      throw new Error(MESSAGES.QUOTA_EXCEEDED);
-    }
     if (res.status === 401) {
       await clearConnection();
       throw new Error(MESSAGES.NOT_CONNECTED);
@@ -323,7 +320,7 @@ function showPanel(): void {
   pendingImportAnchor = null;
   autoStartOauth = false;
   closeAfterHiddenConnect = false;
-  figma.showUI(__html__, { width: 320, height: 280, title: "Plugin Options" });
+  figma.showUI(__html__, { width: 320, height: 240, title: "Plugin Options" });
 }
 
 /** Hidden UI for OAuth (and optional import after connect). */

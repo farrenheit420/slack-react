@@ -33,13 +33,6 @@
         gap: 16px;
       }
 
-      h1 {
-        margin: 0;
-        font-size: 14px;
-        font-weight: 600;
-        line-height: normal;
-      }
-
       section {
         margin: 0;
         padding: 0;
@@ -169,8 +162,6 @@
     </style>
   </head>
   <body>
-    <h1>Plugin Options</h1>
-
     <section id="size-section">
       <span class="section-label">Import Size</span>
       <div class="segmented" role="group" aria-label="Import size">
@@ -200,7 +191,7 @@
     <div id="message" aria-live="polite"></div>
 
     <script>
-      "use strict";(()=>{var O="http://localhost:3000";var o={DISCONNECT:"disconnect",IMPORT_ONE:"import-one",GET_CONNECTION:"get-connection",UI_READY:"ui-ready",SAVE_OPTIONS:"save-options",RUN_OAUTH:"run-oauth",CONNECTION_STATE:"connection-state",OPTIONS_STATE:"options-state",IMPORT_RESULT:"import-result",STATUS:"status",START_OAUTH:"start-oauth",AUTH_ERROR:"auth-error"};var N=600*1e3;var c={NOT_CONNECTED:"Connect a Slack workspace in Plugin Options first.",CONNECT_TO_IMPORT:"Connect to Slack to import\u2026",CONNECTED:e=>`Connected to ${e}`,DISCONNECTED:"Disconnected from Slack.",IMPORTING:e=>`Importing :${e}:\u2026`,IMPORTED:e=>`Imported :${e}:`,NOT_FOUND:e=>`No custom emoji named :${e}:`,QUOTA_EXCEEDED:"Free tier limit reached for this month.",AUTH_FAILED:"Slack connection failed. Try again.",AUTH_TIMEOUT:"Slack connection timed out. Try again.",ERROR_PREFIX:"Error: ",ENTER_EMOJI_NAME:"Enter an emoji name (e.g. this or :this:)."};function s(e){let t=document.getElementById(e);if(!t)throw new Error(`Missing #${e}`);return t}var T=s("connect-btn"),I=s("disconnect-btn"),A=s("disconnected"),u=s("connected"),f=s("team-name"),E=s("message"),d=Array.from(document.querySelectorAll("[data-size]")),m=O,l=!1,r="medium";function n(e,t=""){E.textContent=e,E.classList.remove("ok","error"),t&&E.classList.add(t)}function p(e,t){A.classList.toggle("hidden",e),u.classList.toggle("hidden",!e),e&&(f.textContent=t?`Connected to ${t}`:"Connected",l=!1,T.disabled=!1)}function i(e){l=e,T.disabled=e}function a(e){parent.postMessage({pluginMessage:e},"*")}function g(){a({type:o.SAVE_OPTIONS,size:r})}function S(){for(let e of d)e.setAttribute("aria-pressed",String(e.dataset.size===r))}async function _(){if(!l){i(!0),n("Opening Slack\u2026");try{let e=await fetch(`${m}/auth/slack/start`,{method:"POST"}),t=await e.json();if(!e.ok||!t.authUrl||!t.readKey)throw new Error(t.error||c.AUTH_FAILED);n("Waiting for Slack authorization\u2026"),a({type:o.RUN_OAUTH,authUrl:t.authUrl,readKey:t.readKey})}catch(e){let t=e instanceof Error?e.message:String(e);n(t,"error"),i(!1)}}}for(let e of d)e.addEventListener("click",()=>{let t=e.dataset.size;!t||t===r||(r=t,S(),g())});I.addEventListener("click",()=>{i(!1),a({type:o.DISCONNECT}),n(""),p(!1)});T.addEventListener("click",()=>{_()});window.onmessage=e=>{let t=e.data&&e.data.pluginMessage;if(!(!t||!t.type)){if(t.type===o.CONNECTION_STATE){typeof t.apiBaseUrl=="string"&&t.apiBaseUrl&&(m=t.apiBaseUrl),p(!!t.connected,t.teamName),t.connected&&n("");return}if(t.type===o.OPTIONS_STATE){(t.size==="small"||t.size==="medium"||t.size==="large")&&(r=t.size),S();return}if(t.type===o.START_OAUTH){_();return}if(t.type===o.AUTH_ERROR){i(!1),n(t.error||c.AUTH_FAILED,"error");return}t.type===o.IMPORT_RESULT&&n(t.message||"",t.ok?"ok":"error")}};S();a({type:o.UI_READY});})();
+      "use strict";(()=>{var O="http://localhost:3000";var o={DISCONNECT:"disconnect",IMPORT_ONE:"import-one",GET_CONNECTION:"get-connection",UI_READY:"ui-ready",SAVE_OPTIONS:"save-options",RUN_OAUTH:"run-oauth",CONNECTION_STATE:"connection-state",OPTIONS_STATE:"options-state",IMPORT_RESULT:"import-result",STATUS:"status",START_OAUTH:"start-oauth",AUTH_ERROR:"auth-error"};var N=600*1e3;var c={NOT_CONNECTED:"Connect a Slack workspace in Plugin Options first.",CONNECT_TO_IMPORT:"Connect to Slack to import\u2026",CONNECTED:e=>`Connected to ${e}`,DISCONNECTED:"Disconnected from Slack.",IMPORTING:e=>`Importing :${e}:\u2026`,IMPORTED:e=>`Imported :${e}:`,NOT_FOUND:e=>`No custom emoji named :${e}:`,AUTH_FAILED:"Slack connection failed. Try again.",AUTH_TIMEOUT:"Slack connection timed out. Try again.",ERROR_PREFIX:"Error: ",ENTER_EMOJI_NAME:"Enter an emoji name (e.g. this or :this:)."};function s(e){let t=document.getElementById(e);if(!t)throw new Error(`Missing #${e}`);return t}var T=s("connect-btn"),u=s("disconnect-btn"),A=s("disconnected"),I=s("connected"),f=s("team-name"),E=s("message"),d=Array.from(document.querySelectorAll("[data-size]")),m=O,l=!1,r="medium";function n(e,t=""){E.textContent=e,E.classList.remove("ok","error"),t&&E.classList.add(t)}function p(e,t){A.classList.toggle("hidden",e),I.classList.toggle("hidden",!e),e&&(f.textContent=t?`Connected to ${t}`:"Connected",l=!1,T.disabled=!1)}function i(e){l=e,T.disabled=e}function a(e){parent.postMessage({pluginMessage:e},"*")}function g(){a({type:o.SAVE_OPTIONS,size:r})}function S(){for(let e of d)e.setAttribute("aria-pressed",String(e.dataset.size===r))}async function _(){if(!l){i(!0),n("Opening Slack\u2026");try{let e=await fetch(`${m}/auth/slack/start`,{method:"POST"}),t=await e.json();if(!e.ok||!t.authUrl||!t.readKey)throw new Error(t.error||c.AUTH_FAILED);n("Waiting for Slack authorization\u2026"),a({type:o.RUN_OAUTH,authUrl:t.authUrl,readKey:t.readKey})}catch(e){let t=e instanceof Error?e.message:String(e);n(t,"error"),i(!1)}}}for(let e of d)e.addEventListener("click",()=>{let t=e.dataset.size;!t||t===r||(r=t,S(),g())});u.addEventListener("click",()=>{i(!1),a({type:o.DISCONNECT}),n(""),p(!1)});T.addEventListener("click",()=>{_()});window.onmessage=e=>{let t=e.data&&e.data.pluginMessage;if(!(!t||!t.type)){if(t.type===o.CONNECTION_STATE){typeof t.apiBaseUrl=="string"&&t.apiBaseUrl&&(m=t.apiBaseUrl),p(!!t.connected,t.teamName),t.connected&&n("");return}if(t.type===o.OPTIONS_STATE){(t.size==="small"||t.size==="medium"||t.size==="large")&&(r=t.size),S();return}if(t.type===o.START_OAUTH){_();return}if(t.type===o.AUTH_ERROR){i(!1),n(t.error||c.AUTH_FAILED,"error");return}t.type===o.IMPORT_RESULT&&n(t.message||"",t.ok?"ok":"error")}};S();a({type:o.UI_READY});})();
 
     </script>
   </body>

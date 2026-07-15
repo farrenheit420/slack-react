@@ -15,6 +15,8 @@ npm run build
 2. In Figma Desktop: **Plugins → Development → Import plugin from manifest…**
 3. Select `plugin/manifest.json`.
 
+`icon.png` (128×128) is the Community / publish icon. Figma does not read it from `manifest.json` — upload it in the publish dialog (or set it when managing the development plugin).
+
 ## Quick Actions
 
 Press **⌘/** (Mac) or **Ctrl+/** (Windows), then choose:

@@ -18,7 +18,6 @@ export function OPTIONS() {
 
 /**
  * Search custom emoji for Quick Actions autocomplete.
- * Free for all tiers — does not count toward import quota.
  *
  * GET /api/emoji/search?q=wave&limit=25
  * - q empty → returns a small alphabetical sample (for empty-state suggestions)

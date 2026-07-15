@@ -1,8 +1,6 @@
 /** Backend base URL. Change to your Vercel deployment URL when deployed. */
 export const API_BASE_URL = "http://localhost:3000";
 
-export const FREE_TIER_LIMIT = 50;
-
 export const STORAGE_KEYS = {
   TEAM_ID: "teamId",
   TEAM_NAME: "teamName",

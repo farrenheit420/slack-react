@@ -36,8 +36,8 @@ API: `http://localhost:3000`
 | `GET` | `/auth/slack/callback` | Slack redirects here; stores token; marks poll ready |
 | `GET` | `/auth/slack/poll?key=` | Plugin polls until `{ teamId, teamName, sessionToken }` |
 | `POST` | `/auth/slack/disconnect` | Invalidate plugin session for the bearer workspace |
-| `GET` | `/api/emoji/one?name=` | Auth session → one emoji `{ name, url }` (quota checked) |
-| `GET` | `/api/emoji/search?q=&limit=` | Auth session → matching emoji for autocomplete (no quota). `catalog=1` returns the full resolved list. |
+| `GET` | `/api/emoji/one?name=` | Auth session → one emoji `{ name, url }` |
+| `GET` | `/api/emoji/search?q=&limit=` | Auth session → matching emoji for autocomplete. `catalog=1` returns the full resolved list. |
 | `GET` | `/api/emoji/icon?name=&session=` | Proxied emoji image with CORS (for Quick Action suggestion thumbnails). |
 | `GET` | `/api/emoji/list` | Pro only; free tier gets `402` + `{ upgrade: true }` |
 

@@ -19,9 +19,3 @@ export function getSlackConfig() {
       `${getAppBaseUrl()}/auth/slack/callback`,
   };
 }
-
-export function getFreeTierLimit(): number {
-  const raw = process.env.FREE_TIER_MONTHLY_LIMIT;
-  const n = raw ? Number(raw) : 50;
-  return Number.isFinite(n) && n > 0 ? n : 50;
-}

@@ -6,7 +6,6 @@ export const MESSAGES = {
   IMPORTING: (name: string) => `Importing :${name}:…`,
   IMPORTED: (name: string) => `Imported :${name}:`,
   NOT_FOUND: (name: string) => `No custom emoji named :${name}:`,
-  QUOTA_EXCEEDED: "Free tier limit reached for this month.",
   AUTH_FAILED: "Slack connection failed. Try again.",
   AUTH_TIMEOUT: "Slack connection timed out. Try again.",
   ERROR_PREFIX: "Error: ",

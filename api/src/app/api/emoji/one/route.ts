@@ -1,11 +1,6 @@
 import { NextRequest } from "next/server";
-import {
-  countMonthlyOneImports,
-  getConnectionFromRequest,
-  recordUsage,
-} from "@/lib/auth";
+import { getConnectionFromRequest } from "@/lib/auth";
 import { jsonWithCors, optionsResponse } from "@/lib/cors";
-import { getFreeTierLimit } from "@/lib/env";
 import { fetchEmojiMap, resolveEmojiUrl } from "@/lib/slack";
 
 export const runtime = "nodejs";
@@ -35,21 +30,6 @@ export async function GET(request: NextRequest) {
       return jsonWithCors({ error: "Invalid emoji name" }, { status: 400 });
     }
 
-    if (connection.tier === "free") {
-      const used = await countMonthlyOneImports(connection.team_id);
-      if (used >= getFreeTierLimit()) {
-        return jsonWithCors(
-          {
-            error: "Free tier monthly limit reached",
-            code: "quota_exceeded",
-            limit: getFreeTierLimit(),
-            used,
-          },
-          { status: 429 }
-        );
-      }
-    }
-
     const emojiMap = await fetchEmojiMap(connection.access_token);
     const url = resolveEmojiUrl(emojiMap, name);
     if (!url) {
@@ -58,8 +38,6 @@ export async function GET(request: NextRequest) {
         { status: 404 }
       );
     }
-
-    await recordUsage(connection.team_id, "one", name);
 
     return jsonWithCors({ name, url });
   } catch (err) {
