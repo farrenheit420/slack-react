@@ -1,5 +1,5 @@
 /** Backend base URL. Change to your Vercel deployment URL when deployed. */
-export const API_BASE_URL = "http://localhost:3000";
+export const API_BASE_URL = "https://emojibridge-api.farrenworks.com";
 
 export const STORAGE_KEYS = {
   TEAM_ID: "teamId",
@@ -17,6 +17,8 @@ export const MESSAGE_TYPES = {
   UI_READY: "ui-ready",
   SAVE_OPTIONS: "save-options",
   RUN_OAUTH: "run-oauth",
+  STAMP_MASK_PATH: "stamp-mask-path",
+  STAMP_MASK_ERROR: "stamp-mask-error",
   // main → UI
   CONNECTION_STATE: "connection-state",
   OPTIONS_STATE: "options-state",
@@ -24,7 +26,11 @@ export const MESSAGE_TYPES = {
   STATUS: "status",
   START_OAUTH: "start-oauth",
   AUTH_ERROR: "auth-error",
+  PROCESS_STAMP_MASK: "process-stamp-mask",
 } as const;
+
+/** Timeout waiting for the UI iframe to extract a stamp silhouette. */
+export const STAMP_MASK_TIMEOUT_MS = 15_000;
 
 /** Canvas box for the emoji artwork (px). Stamp adds padding around this. */
 export const EMOJI_SIZES = {

@@ -2,6 +2,7 @@ import {
   API_BASE_URL,
   EMOJI_SIZES,
   MESSAGE_TYPES,
+  STAMP_MASK_TIMEOUT_MS,
   STAMP_PADDING_RATIO,
   STAMP_ROTATION_MAX_DEG,
   STORAGE_KEYS,
@@ -23,6 +24,8 @@ type Connection = {
   sessionToken: string;
 };
 
+type StampPathPoint = { x: number; y: number };
+
 type UiToMainMessage =
   | { type: typeof MESSAGE_TYPES.UI_READY }
   | { type: typeof MESSAGE_TYPES.GET_CONNECTION }
@@ -36,6 +39,14 @@ type UiToMainMessage =
   | {
       type: typeof MESSAGE_TYPES.SAVE_OPTIONS;
       size: ImportOptions["size"];
+    }
+  | {
+      type: typeof MESSAGE_TYPES.STAMP_MASK_PATH;
+      paths: StampPathPoint[][];
+    }
+  | {
+      type: typeof MESSAGE_TYPES.STAMP_MASK_ERROR;
+      message?: string;
     };
 
 /** When set, Connect runs in a hidden UI then imports this emoji. */
@@ -51,11 +62,38 @@ let closeAfterHiddenConnect = false;
 /** Bumped to cancel an in-flight main-thread OAuth poll. */
 let oauthPollGeneration = 0;
 
+/** Resolves when the plugin UI iframe has posted UI_READY. */
+let uiReady = false;
+let uiReadyWaiters: Array<() => void> = [];
+
+/** One-shot waiter for stamp silhouette extraction. */
+let pendingStampMask: {
+  resolve: (paths: StampPathPoint[][]) => void;
+  reject: (err: Error) => void;
+} | null = null;
+
 const OAUTH_POLL_INTERVAL_MS = 1000;
 const OAUTH_POLL_TIMEOUT_MS = 3 * 60 * 1000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function markUiNotReady(): void {
+  uiReady = false;
+}
+
+function markUiReady(): void {
+  uiReady = true;
+  for (const resolve of uiReadyWaiters) resolve();
+  uiReadyWaiters = [];
+}
+
+function waitForUiReady(): Promise<void> {
+  if (uiReady) return Promise.resolve();
+  return new Promise((resolve) => {
+    uiReadyWaiters.push(resolve);
+  });
 }
 
 function normalizeEmojiName(raw: string): string {
@@ -142,6 +180,190 @@ function placeAtAnchor(
   node.y = anchor.y - height / 2;
 }
 
+function stampDropShadow(): DropShadowEffect {
+  return {
+    type: "DROP_SHADOW",
+    color: { r: 0, g: 0, b: 0, a: 0.18 },
+    offset: { x: 0, y: 3 },
+    radius: 8,
+    spread: 0,
+    visible: true,
+    blendMode: "NORMAL",
+  };
+}
+
+function randomStampRotation(): number {
+  return Math.random() * STAMP_ROTATION_MAX_DEG * 2 - STAMP_ROTATION_MAX_DEG;
+}
+
+function pointsToPathData(points: StampPathPoint[]): string {
+  if (points.length === 0) return "";
+  const first = points[0];
+  let data = `M ${first.x} ${first.y}`;
+  for (let i = 1; i < points.length; i++) {
+    data += ` L ${points[i].x} ${points[i].y}`;
+  }
+  data += " Z";
+  return data;
+}
+
+function pathBounds(paths: StampPathPoint[][]): {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+} | null {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  let any = false;
+  for (const path of paths) {
+    for (const p of path) {
+      any = true;
+      if (p.x < minX) minX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y > maxY) maxY = p.y;
+    }
+  }
+  if (!any) return null;
+  return { minX, minY, maxX, maxY };
+}
+
+/**
+ * Ask the UI iframe to dilate + trace the emoji silhouette.
+ * Requires showUI to have been called; waits for UI_READY first.
+ */
+async function requestStampMask(args: {
+  imageBytes: Uint8Array;
+  nodeWidth: number;
+  nodeHeight: number;
+  padding: number;
+}): Promise<StampPathPoint[][]> {
+  await waitForUiReady();
+
+  return new Promise((resolve, reject) => {
+    if (pendingStampMask) {
+      pendingStampMask.reject(new Error("Stamp mask request superseded"));
+      pendingStampMask = null;
+    }
+
+    const timer = setTimeout(() => {
+      if (pendingStampMask) {
+        pendingStampMask = null;
+        reject(new Error("Stamp mask timed out"));
+      }
+    }, STAMP_MASK_TIMEOUT_MS);
+
+    pendingStampMask = {
+      resolve: (paths) => {
+        clearTimeout(timer);
+        pendingStampMask = null;
+        resolve(paths);
+      },
+      reject: (err) => {
+        clearTimeout(timer);
+        pendingStampMask = null;
+        reject(err);
+      },
+    };
+
+    figma.ui.postMessage({
+      type: MESSAGE_TYPES.PROCESS_STAMP_MASK,
+      imageBytes: Array.from(args.imageBytes),
+      nodeWidth: args.nodeWidth,
+      nodeHeight: args.nodeHeight,
+      padding: args.padding,
+    });
+  });
+}
+
+/** Legacy square white matte — used when silhouette extraction fails. */
+function placeSquareStamp(
+  name: string,
+  imageFill: ImagePaint,
+  emojiBox: number,
+  nodeWidth: number,
+  nodeHeight: number,
+  padding: number,
+  anchor: Vector
+): SceneNode {
+  const stampW = emojiBox + padding * 2;
+  const stampH = emojiBox + padding * 2;
+  const cornerRadius = Math.round(stampW * 0.18);
+
+  const frame = figma.createFrame();
+  frame.name = `:${name}:`;
+  frame.resize(stampW, stampH);
+  frame.fills = [{ type: "SOLID", color: { r: 1, g: 1, b: 1 } }];
+  frame.strokes = [{ type: "SOLID", color: { r: 0.88, g: 0.88, b: 0.9 } }];
+  frame.strokeWeight = 1.5;
+  frame.cornerRadius = cornerRadius;
+  frame.clipsContent = true;
+  frame.effects = [stampDropShadow()];
+
+  const rect = figma.createRectangle();
+  rect.name = "emoji";
+  rect.resize(nodeWidth, nodeHeight);
+  rect.x = padding + (emojiBox - nodeWidth) / 2;
+  rect.y = padding + (emojiBox - nodeHeight) / 2;
+  rect.fills = [imageFill];
+  frame.appendChild(rect);
+
+  placeAtAnchor(frame, stampW, stampH, anchor);
+  frame.rotation = randomStampRotation();
+  return frame;
+}
+
+/** Silhouette matte: white EVENODD vector + IMAGE rect, grouped and tilted. */
+function placeShapedStamp(
+  name: string,
+  imageFill: ImagePaint,
+  nodeWidth: number,
+  nodeHeight: number,
+  paths: StampPathPoint[][],
+  anchor: Vector
+): SceneNode {
+  const bounds = pathBounds(paths);
+  if (!bounds) {
+    throw new Error("Empty stamp paths");
+  }
+
+  const { minX, minY } = bounds;
+
+  const shiftedPaths = paths.map((path) =>
+    path.map((p) => ({ x: p.x - minX, y: p.y - minY }))
+  );
+
+  const vector = figma.createVector();
+  vector.name = "matte";
+  vector.vectorPaths = shiftedPaths.map((points) => ({
+    windingRule: "EVENODD" as const,
+    data: pointsToPathData(points),
+  }));
+  vector.fills = [{ type: "SOLID", color: { r: 1, g: 1, b: 1 } }];
+  vector.strokes = [{ type: "SOLID", color: { r: 0.88, g: 0.88, b: 0.9 } }];
+  vector.strokeWeight = 1.5;
+  vector.effects = [stampDropShadow()];
+
+  const rect = figma.createRectangle();
+  rect.name = "emoji";
+  rect.resize(nodeWidth, nodeHeight);
+  rect.x = -minX;
+  rect.y = -minY;
+  rect.fills = [imageFill];
+
+  figma.currentPage.appendChild(vector);
+  figma.currentPage.appendChild(rect);
+  const group = figma.group([vector, rect], figma.currentPage);
+  group.name = `:${name}:`;
+
+  placeAtAnchor(group, group.width, group.height, anchor);
+  group.rotation = randomStampRotation();
+  return group;
+}
+
 async function placeEmojiOnCanvas(
   name: string,
   url: string,
@@ -167,45 +389,37 @@ async function placeEmojiOnCanvas(
 
   if (style === "stamp") {
     const padding = Math.max(4, Math.round(emojiBox * STAMP_PADDING_RATIO));
-    const stampW = emojiBox + padding * 2;
-    const stampH = emojiBox + padding * 2;
-    const cornerRadius = Math.round(stampW * 0.18);
 
-    const frame = figma.createFrame();
-    frame.name = `:${name}:`;
-    frame.resize(stampW, stampH);
-    frame.fills = [{ type: "SOLID", color: { r: 1, g: 1, b: 1 } }];
-    frame.strokes = [{ type: "SOLID", color: { r: 0.88, g: 0.88, b: 0.9 } }];
-    frame.strokeWeight = 1.5;
-    frame.cornerRadius = cornerRadius;
-    frame.clipsContent = true;
-    frame.effects = [
-      {
-        type: "DROP_SHADOW",
-        color: { r: 0, g: 0, b: 0, a: 0.18 },
-        offset: { x: 0, y: 3 },
-        radius: 8,
-        spread: 0,
-        visible: true,
-        blendMode: "NORMAL",
-      },
-    ];
-
-    const rect = figma.createRectangle();
-    rect.name = "emoji";
-    rect.resize(nodeWidth, nodeHeight);
-    rect.x = padding + (emojiBox - nodeWidth) / 2;
-    rect.y = padding + (emojiBox - nodeHeight) / 2;
-    rect.fills = [imageFill];
-    frame.appendChild(rect);
-
-    placeAtAnchor(frame, stampW, stampH, anchor);
-
-    const deg =
-      Math.random() * STAMP_ROTATION_MAX_DEG * 2 - STAMP_ROTATION_MAX_DEG;
-    frame.rotation = deg;
-
-    placed = frame;
+    try {
+      const imageBytes = await image.getBytesAsync();
+      const paths = await requestStampMask({
+        imageBytes,
+        nodeWidth,
+        nodeHeight,
+        padding,
+      });
+      if (!paths.length) {
+        throw new Error("No opaque pixels");
+      }
+      placed = placeShapedStamp(
+        name,
+        imageFill,
+        nodeWidth,
+        nodeHeight,
+        paths,
+        anchor
+      );
+    } catch {
+      placed = placeSquareStamp(
+        name,
+        imageFill,
+        emojiBox,
+        nodeWidth,
+        nodeHeight,
+        padding,
+        anchor
+      );
+    }
   } else {
     const rect = figma.createRectangle();
     rect.name = `:${name}:`;
@@ -215,7 +429,10 @@ async function placeEmojiOnCanvas(
     placed = rect;
   }
 
-  figma.currentPage.appendChild(placed);
+  // Shaped stamps are already on the page via figma.group; square/default may not be.
+  if (!placed.parent) {
+    figma.currentPage.appendChild(placed);
+  }
   figma.currentPage.selection = [placed];
 }
 
@@ -320,6 +537,7 @@ function showPanel(): void {
   pendingImportAnchor = null;
   autoStartOauth = false;
   closeAfterHiddenConnect = false;
+  markUiNotReady();
   figma.showUI(__html__, { width: 320, height: 240, title: "Plugin Options" });
 }
 
@@ -334,6 +552,7 @@ function showHiddenConnectUi(
   pendingImportAnchor = anchor;
   autoStartOauth = true;
   closeAfterHiddenConnect = true;
+  markUiNotReady();
   figma.showUI(__html__, { visible: false });
 }
 
@@ -447,7 +666,24 @@ async function runOAuthFlow(authUrl: string, readKey: string): Promise<void> {
 figma.ui.onmessage = async (msg: UiToMainMessage) => {
   if (!msg || !msg.type) return;
 
+  if (msg.type === MESSAGE_TYPES.STAMP_MASK_PATH) {
+    pendingStampMask?.resolve(
+      Array.isArray(msg.paths) ? msg.paths : []
+    );
+    return;
+  }
+
+  if (msg.type === MESSAGE_TYPES.STAMP_MASK_ERROR) {
+    pendingStampMask?.reject(
+      new Error(msg.message || "Stamp mask failed")
+    );
+    return;
+  }
+
   if (msg.type === MESSAGE_TYPES.UI_READY || msg.type === MESSAGE_TYPES.GET_CONNECTION) {
+    if (msg.type === MESSAGE_TYPES.UI_READY) {
+      markUiReady();
+    }
     postConnectionState(await getConnection());
     await postOptionsState();
     if (autoStartOauth && msg.type === MESSAGE_TYPES.UI_READY) {
@@ -560,6 +796,7 @@ figma.on("run", async (event) => {
       return;
     }
 
+    markUiNotReady();
     figma.showUI(__html__, { visible: false });
     await importOneEmoji(name, false, style, anchor);
     figma.closePlugin();

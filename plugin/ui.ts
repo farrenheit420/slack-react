@@ -1,5 +1,6 @@
 import { API_BASE_URL, MESSAGE_TYPES, type EmojiSizeKey } from "./constants";
 import { MESSAGES } from "./messages";
+import { extractStampContours } from "./stampMask";
 
 function $(id: string): HTMLElement {
   const el = document.getElementById(id);
@@ -111,9 +112,73 @@ connectBtn.addEventListener("click", () => {
   void startOAuth();
 });
 
+async function processStampMask(msg: {
+  imageBytes: ArrayBuffer | number[];
+  nodeWidth: number;
+  nodeHeight: number;
+  padding: number;
+}): Promise<void> {
+  let url: string | null = null;
+  try {
+    const bytes = new Uint8Array(msg.imageBytes);
+    const blob = new Blob([bytes]);
+    url = URL.createObjectURL(blob);
+    const image = new Image();
+
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error("Failed to decode emoji image"));
+      image.src = url!;
+    });
+
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Could not get 2D context from canvas");
+
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const imageData = ctx.getImageData(
+      0,
+      0,
+      image.naturalWidth,
+      image.naturalHeight
+    );
+
+    if (url) {
+      URL.revokeObjectURL(url);
+      url = null;
+    }
+
+    const paths = extractStampContours(
+      imageData,
+      msg.nodeWidth,
+      msg.nodeHeight,
+      msg.padding
+    );
+
+    postToPlugin({
+      type: MESSAGE_TYPES.STAMP_MASK_PATH,
+      paths,
+    });
+  } catch (err) {
+    if (url) URL.revokeObjectURL(url);
+    const message = err instanceof Error ? err.message : String(err);
+    postToPlugin({
+      type: MESSAGE_TYPES.STAMP_MASK_ERROR,
+      message,
+    });
+  }
+}
+
 window.onmessage = (event: MessageEvent) => {
   const msg = event.data && event.data.pluginMessage;
   if (!msg || !msg.type) return;
+
+  if (msg.type === MESSAGE_TYPES.PROCESS_STAMP_MASK) {
+    void processStampMask(msg);
+    return;
+  }
 
   if (msg.type === MESSAGE_TYPES.CONNECTION_STATE) {
     if (typeof msg.apiBaseUrl === "string" && msg.apiBaseUrl) {

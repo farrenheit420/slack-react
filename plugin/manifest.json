@@ -1,6 +1,6 @@
 {
-  "name": "Slack React",
-  "id": "slack-react",
+  "name": "Emoji Bridge",
+  "id": "emojibridge",
   "api": "1.0.0",
   "main": "code.js",
   "ui": "ui.html",
@@ -12,7 +12,8 @@
       "https://emoji.slack-edge.com",
       "https://a.slack-edge.com",
       "https://slack.com",
-      "https://*.slack.com"
+      "https://*.slack.com",
+      "https://emojibridge-api.farrenworks.com"
     ],
     "reasoning": "Opens Slack OAuth and fetches Slack custom emoji images from Slack CDNs. Add your deployed API host here before publishing.",
     "devAllowedDomains": ["http://localhost:3000"]
