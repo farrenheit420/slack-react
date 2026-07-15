@@ -38,7 +38,10 @@ export async function GET(request: NextRequest) {
       Math.max(1, Number.isFinite(limitRaw) ? Math.floor(limitRaw) : DEFAULT_LIMIT)
     );
 
-    const emojiMap = await fetchEmojiMap(connection.access_token);
+    const emojiMap = await fetchEmojiMap(
+      connection.access_token,
+      connection.team_id
+    );
     const resolved = listResolvedEmoji(emojiMap);
 
     if (wantCatalog) {

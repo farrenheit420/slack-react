@@ -61,5 +61,11 @@ export const STAMP_ROTATION_MAX_DEG = 8;
 /** How long to reuse a cached workspace emoji catalog before refetching. */
 export const EMOJI_CATALOG_TTL_MS = 10 * 60 * 1000;
 
+/**
+ * While searching, refetch at most this often so newly added Slack emoji
+ * appear without hammering the API on every keystroke.
+ */
+export const EMOJI_CATALOG_SEARCH_REFRESH_MS = 30 * 1000;
+
 /** Max Quick Action suggestions shown while typing. */
 export const EMOJI_SUGGESTION_LIMIT = 25;

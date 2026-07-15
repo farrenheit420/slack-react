@@ -26,7 +26,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const emojiMap = await fetchEmojiMap(connection.access_token);
+    const emojiMap = await fetchEmojiMap(
+      connection.access_token,
+      connection.team_id
+    );
     const resolved: Record<string, string> = {};
 
     for (const name of Object.keys(emojiMap)) {

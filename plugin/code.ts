@@ -14,8 +14,11 @@ import { getImportOptions, normalizeImportOptions, saveImportOptions } from "./o
 import {
   clearEmojiCatalogCache,
   buildEmojiSuggestions,
+  ensureSearchEmojiCatalog,
   filterEmojiCatalog,
-  getEmojiCatalog,
+  peekEmojiCatalog,
+  refreshEmojiCatalog,
+  type CatalogEmoji,
 } from "./emojiCatalog";
 
 type Connection = {
@@ -180,6 +183,57 @@ function placeAtAnchor(
   node.y = anchor.y - height / 2;
 }
 
+/** Child constraints so resizing the parent scales content (not stretch). */
+function setScaleConstraints(node: SceneNode): void {
+  if (!("constraints" in node)) return;
+  try {
+    (node as SceneNode & ConstraintMixin).constraints = {
+      horizontal: "SCALE",
+      vertical: "SCALE",
+    };
+  } catch {
+    // Ignored for auto-layout parents / unsupported contexts.
+  }
+}
+
+/** Keep width/height proportional when the user resizes on-canvas. */
+function lockProportionalScale(node: SceneNode): void {
+  const n = node as SceneNode & {
+    lockAspectRatio?: () => void;
+    constrainProportions?: boolean;
+  };
+  if (typeof n.lockAspectRatio === "function") {
+    n.lockAspectRatio();
+  } else if ("constrainProportions" in n) {
+    n.constrainProportions = true;
+  }
+}
+
+/** Warm the emoji catalog in the background (connect / options / quick actions). */
+function preloadEmojiCatalog(conn: Connection): void {
+  void refreshEmojiCatalog(conn.teamId, conn.sessionToken).catch(() => {
+    // Warmup is best-effort; search will retry.
+  });
+}
+
+function applyEmojiSearchResults(
+  result: {
+    setSuggestions: (suggestions: { name: string; data: string; iconUrl?: string }[]) => void;
+    setError: (message: string) => void;
+  },
+  catalog: CatalogEmoji[],
+  query: string,
+  sessionToken: string
+): void {
+  const matches = filterEmojiCatalog(catalog, query);
+  if (matches.length === 0) {
+    const q = normalizeEmojiName(query);
+    result.setError(q ? `No emoji matching “${q}”` : "Type to search custom emoji");
+    return;
+  }
+  result.setSuggestions(buildEmojiSuggestions(matches, sessionToken));
+}
+
 function stampDropShadow(): DropShadowEffect {
   return {
     type: "DROP_SHADOW",
@@ -310,6 +364,8 @@ function placeSquareStamp(
   rect.y = padding + (emojiBox - nodeHeight) / 2;
   rect.fills = [imageFill];
   frame.appendChild(rect);
+  setScaleConstraints(rect);
+  lockProportionalScale(frame);
 
   placeAtAnchor(frame, stampW, stampH, anchor);
   frame.rotation = randomStampRotation();
@@ -358,6 +414,9 @@ function placeShapedStamp(
   figma.currentPage.appendChild(rect);
   const group = figma.group([vector, rect], figma.currentPage);
   group.name = `:${name}:`;
+  setScaleConstraints(vector);
+  setScaleConstraints(rect);
+  lockProportionalScale(group);
 
   placeAtAnchor(group, group.width, group.height, anchor);
   group.rotation = randomStampRotation();
@@ -425,6 +484,7 @@ async function placeEmojiOnCanvas(
     rect.name = `:${name}:`;
     rect.resize(nodeWidth, nodeHeight);
     rect.fills = [imageFill];
+    lockProportionalScale(rect);
     placeAtAnchor(rect, nodeWidth, nodeHeight, anchor);
     placed = rect;
   }
@@ -616,6 +676,7 @@ async function pollOAuthOnMain(
 async function finishOAuthSuccess(conn: Connection): Promise<void> {
   await saveConnection(conn);
   figma.notify(MESSAGES.CONNECTED(conn.teamName));
+  preloadEmojiCatalog(conn);
 
   const importName = pendingImportName;
   const importStyle = pendingImportStyle;
@@ -684,8 +745,12 @@ figma.ui.onmessage = async (msg: UiToMainMessage) => {
     if (msg.type === MESSAGE_TYPES.UI_READY) {
       markUiReady();
     }
-    postConnectionState(await getConnection());
+    const conn = await getConnection();
+    postConnectionState(conn);
     await postOptionsState();
+    if (conn) {
+      preloadEmojiCatalog(conn);
+    }
     if (autoStartOauth && msg.type === MESSAGE_TYPES.UI_READY) {
       figma.ui.postMessage({ type: MESSAGE_TYPES.START_OAUTH });
     }
@@ -746,21 +811,38 @@ figma.parameters.on("input", async ({ key, query, result }) => {
   }
 
   try {
-    result.setLoadingMessage("Loading emoji…");
-    const catalog = await getEmojiCatalog(conn.teamId, conn.sessionToken);
+    const cached = await peekEmojiCatalog(conn.teamId);
     if (requestId !== suggestionRequestId) return;
 
-    const matches = filterEmojiCatalog(catalog, query);
-    if (matches.length === 0) {
-      const q = normalizeEmojiName(query);
-      result.setError(q ? `No emoji matching “${q}”` : "Type to search custom emoji");
+    if (cached) {
+      applyEmojiSearchResults(result, cached, query, conn.sessionToken);
+
+      // Refresh in the background; update only if this keystroke is still current.
+      void ensureSearchEmojiCatalog(conn.teamId, conn.sessionToken)
+        .then((catalog) => {
+          if (requestId !== suggestionRequestId) return;
+          applyEmojiSearchResults(result, catalog, query, conn.sessionToken);
+        })
+        .catch(() => {
+          // Keep cached suggestions on refresh failure.
+        });
       return;
     }
 
-    // Set names + CORS-proxied iconUrl in one shot (Slack CDN blocks direct iconUrl).
-    result.setSuggestions(buildEmojiSuggestions(matches, conn.sessionToken));
+    result.setLoadingMessage("Loading emoji…");
+    const catalog = await ensureSearchEmojiCatalog(
+      conn.teamId,
+      conn.sessionToken
+    );
+    if (requestId !== suggestionRequestId) return;
+    applyEmojiSearchResults(result, catalog, query, conn.sessionToken);
   } catch (err) {
     if (requestId !== suggestionRequestId) return;
+    const fallback = await peekEmojiCatalog(conn.teamId);
+    if (fallback) {
+      applyEmojiSearchResults(result, fallback, query, conn.sessionToken);
+      return;
+    }
     const message = err instanceof Error ? err.message : String(err);
     result.setError(message || MESSAGES.AUTH_FAILED);
   }

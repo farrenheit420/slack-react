@@ -1,5 +1,16 @@
 import { getSlackConfig } from "./env";
 
+/** In-memory per-team cache for emoji.list (shared across warm serverless invocations). */
+const EMOJI_MAP_TTL_MS = 2 * 60 * 1000;
+
+type EmojiMapCacheEntry = {
+  emoji: Record<string, string>;
+  fetchedAt: number;
+  inflight?: Promise<Record<string, string>>;
+};
+
+const emojiMapCache = new Map<string, EmojiMapCacheEntry>();
+
 export type SlackTokenResponse = {
   ok: boolean;
   error?: string;
@@ -73,22 +84,69 @@ export async function exchangeSlackCode(code: string): Promise<{
 }
 
 export async function fetchEmojiMap(
-  accessToken: string
+  accessToken: string,
+  teamId?: string
 ): Promise<Record<string, string>> {
-  const res = await fetch("https://slack.com/api/emoji.list", {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  const data = (await res.json()) as {
-    ok: boolean;
-    error?: string;
-    emoji?: Record<string, string>;
-  };
-
-  if (!data.ok || !data.emoji) {
-    throw new Error(data.error || "emoji.list failed");
+  if (teamId) {
+    const hit = emojiMapCache.get(teamId);
+    if (hit) {
+      if (Date.now() - hit.fetchedAt < EMOJI_MAP_TTL_MS) {
+        return hit.emoji;
+      }
+      if (hit.inflight) {
+        return hit.inflight;
+      }
+    }
   }
 
-  return data.emoji;
+  const request = (async () => {
+    const res = await fetch("https://slack.com/api/emoji.list", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const data = (await res.json()) as {
+      ok: boolean;
+      error?: string;
+      emoji?: Record<string, string>;
+    };
+
+    if (!data.ok || !data.emoji) {
+      throw new Error(data.error || "emoji.list failed");
+    }
+
+    return data.emoji;
+  })();
+
+  if (teamId) {
+    const prev = emojiMapCache.get(teamId);
+    emojiMapCache.set(teamId, {
+      emoji: prev?.emoji ?? {},
+      fetchedAt: prev?.fetchedAt ?? 0,
+      inflight: request,
+    });
+  }
+
+  try {
+    const emoji = await request;
+    if (teamId) {
+      emojiMapCache.set(teamId, { emoji, fetchedAt: Date.now() });
+    }
+    return emoji;
+  } catch (err) {
+    if (teamId) {
+      const prev = emojiMapCache.get(teamId);
+      if (prev?.inflight === request) {
+        if (prev.fetchedAt > 0 && Object.keys(prev.emoji).length > 0) {
+          emojiMapCache.set(teamId, {
+            emoji: prev.emoji,
+            fetchedAt: prev.fetchedAt,
+          });
+        } else {
+          emojiMapCache.delete(teamId);
+        }
+      }
+    }
+    throw err;
+  }
 }
 
 /**

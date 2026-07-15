@@ -34,7 +34,10 @@ export async function GET(request: NextRequest) {
       return jsonWithCors({ error: "Invalid emoji name" }, { status: 400 });
     }
 
-    const emojiMap = await fetchEmojiMap(connection.access_token);
+    const emojiMap = await fetchEmojiMap(
+      connection.access_token,
+      connection.team_id
+    );
     const imageUrl = resolveEmojiUrl(emojiMap, name);
     if (!imageUrl) {
       return jsonWithCors({ error: "Not found" }, { status: 404 });

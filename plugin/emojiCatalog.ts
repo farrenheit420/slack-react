@@ -1,5 +1,6 @@
 import {
   API_BASE_URL,
+  EMOJI_CATALOG_SEARCH_REFRESH_MS,
   EMOJI_CATALOG_TTL_MS,
   EMOJI_SUGGESTION_LIMIT,
   STORAGE_KEYS,
@@ -30,7 +31,14 @@ function isFresh(cache: CatalogCache, teamId: string): boolean {
   );
 }
 
-async function readStoredCatalog(teamId: string): Promise<CatalogCache | null> {
+function isUsable(cache: CatalogCache, teamId: string): boolean {
+  return cache.teamId === teamId && Array.isArray(cache.emoji);
+}
+
+async function readStoredCatalog(
+  teamId: string,
+  options: { allowStale?: boolean } = {}
+): Promise<CatalogCache | null> {
   const raw = await figma.clientStorage.getAsync(STORAGE_KEYS.EMOJI_CATALOG);
   if (!raw || typeof raw !== "object") return null;
   const cache = raw as CatalogCache;
@@ -40,6 +48,9 @@ async function readStoredCatalog(teamId: string): Promise<CatalogCache | null> {
     !Array.isArray(cache.emoji)
   ) {
     return null;
+  }
+  if (options.allowStale) {
+    return isUsable(cache, teamId) ? cache : null;
   }
   return isFresh(cache, teamId) ? cache : null;
 }
@@ -111,6 +122,62 @@ async function fetchCatalogFromApi(
   return emoji;
 }
 
+/**
+ * Return a previously fetched catalog for this team, even if past the TTL.
+ * Used for instant search suggestions while a refresh is in flight.
+ */
+export async function peekEmojiCatalog(
+  teamId: string
+): Promise<CatalogEmoji[] | null> {
+  if (memoryCache && isUsable(memoryCache, teamId)) {
+    return memoryCache.emoji;
+  }
+  const stored = await readStoredCatalog(teamId, { allowStale: true });
+  if (stored) {
+    memoryCache = stored;
+    return stored.emoji;
+  }
+  return null;
+}
+
+/** Always refetch from Slack (deduped). Updates the cache on success. */
+export async function refreshEmojiCatalog(
+  teamId: string,
+  sessionToken: string
+): Promise<CatalogEmoji[]> {
+  if (inflight) return inflight;
+
+  const request = fetchCatalogFromApi(sessionToken, teamId);
+  inflight = request;
+  void request.then(
+    () => {
+      if (inflight === request) inflight = null;
+    },
+    () => {
+      if (inflight === request) inflight = null;
+    }
+  );
+  return request;
+}
+
+/**
+ * For Quick Action search: return a catalog refreshed within the search
+ * cooldown window, refetching from Slack when older so new emoji show up.
+ */
+export async function ensureSearchEmojiCatalog(
+  teamId: string,
+  sessionToken: string
+): Promise<CatalogEmoji[]> {
+  if (
+    memoryCache &&
+    isUsable(memoryCache, teamId) &&
+    Date.now() - memoryCache.fetchedAt < EMOJI_CATALOG_SEARCH_REFRESH_MS
+  ) {
+    return memoryCache.emoji;
+  }
+  return refreshEmojiCatalog(teamId, sessionToken);
+}
+
 export async function getEmojiCatalog(
   teamId: string,
   sessionToken: string
@@ -125,17 +192,5 @@ export async function getEmojiCatalog(
     return stored.emoji;
   }
 
-  if (inflight) return inflight;
-
-  const request = fetchCatalogFromApi(sessionToken, teamId);
-  inflight = request;
-  void request.then(
-    () => {
-      if (inflight === request) inflight = null;
-    },
-    () => {
-      if (inflight === request) inflight = null;
-    }
-  );
-  return request;
+  return refreshEmojiCatalog(teamId, sessionToken);
 }
